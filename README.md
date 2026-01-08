@@ -4,7 +4,7 @@
 
 -   **Este script no instala Debian. Se ejecuta después de haber instalado Debian 13 con entorno gráfico GNOME.**
 
--   **Se recomienda utilizarlo solo en instalaciones limpias, inmediatamente después de instalar DEBIAN 13**
+-   **Se recomienda utilizarlo solo en instalaciones limpias, inmediatamente después de instalar Debian 13**
 
 ## Por qué este repositorio
 
