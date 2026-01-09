@@ -3,6 +3,20 @@ cat > /tmp/postinstalacion-debian13.sh <<'__SCRIPT__'
 set -Eeuo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
+# ============================================================
+# Debian 13 (GNOME) Postinstalación automatizada — v1.0
+# ============================================================
+# Nota
+# - Diseñado para ejecutarse tras una instalación limpia de Debian 13 con GNOME.
+# - No crea ficheros en /etc/apt/sources.list.d (usa solo /etc/apt/sources.list).
+# - Edita /etc/sudoers directamente (con copia de seguridad y validación visudo).
+# - No modifica el comportamiento de la tecla Super (solo fija Super+A).
+# - Aplica ajustes GNOME una sola vez al primer inicio de sesión (postlogin).
+#
+# Logs:
+# - /tmp/postinstalacion-debian13.log
+# - ~/postlogin-gnome.log
+
 # =========================
 # Helpers sudo / run-as-user
 # =========================
@@ -13,21 +27,24 @@ else
   SUDO="sudo"
 fi
 
+# =========================
+# Log (robusto con sudo)
+# =========================
 LOG="/tmp/postinstalacion-debian13.log"
-# Log robusto: si hay sudo, tee escribe con privilegios
 exec > >($SUDO tee -a "$LOG") 2>&1
 
 trap 'ec=$?; echo; echo "ERROR (código $ec) en línea $LINENO"; echo "Log: $LOG"; exit $ec' ERR
 log(){ printf "\n[%s] %s\n" "$(date +'%F %T')" "$*"; }
 
 # =========================
-# Parámetros (v1.2, sin sources.list.d)
+# Parámetros (v1.0)
 # =========================
 : "${INSTALL_RSTUDIO:=1}"
 : "${RSTUDIO_URL:=https://download1.rstudio.org/electron/jammy/amd64/rstudio-2026.01.0-392-amd64.deb}"
 : "${RSTUDIO_SHA256_PINNED:=a85734b70843d6157a423829ffbcff9eadc739403ab1c7425c17236f733f95d8}"
 
 : "${CRAN_KEY_FPR:=95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7}"
+: "${CRAN_REPO_LINE:=deb [signed-by=/etc/apt/keyrings/cran-debian.gpg] http://cloud.r-project.org/bin/linux/debian trixie-cran40/}"
 
 # GRUB
 : "${GRUB_TIMEOUT:=10}"
@@ -48,6 +65,16 @@ log(){ printf "\n[%s] %s\n" "$(date +'%F %T')" "$*"; }
 
 # DING
 : "${DING_ICON_SIZE:=small}"         # small/medium/large
+
+# Extensiones (UUID en extensions.gnome.org)
+# Nota: ArcMenu se omite a propósito.
+: "${EXT_DASH_TO_DOCK:=dash-to-dock@micxgx.gmail.com}"
+: "${EXT_BLUR_MY_SHELL:=blur-my-shell@aunetx}"
+: "${EXT_CAFFEINE:=caffeine@patapon.info}"
+: "${EXT_VITALS:=Vitals@CoreCoding.com}"
+: "${EXT_COVERFLOW:=CoverflowAltTab@palatis.blogspot.com}"
+: "${EXT_DESKTOP_CUBE:=desktop-cube@schneegans.github.com}"
+: "${EXT_DING:=ding@rastersoft.com}"
 
 # Usuario objetivo
 TARGET_USER="${SUDO_USER:-$(id -un)}"
@@ -79,14 +106,14 @@ deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-f
 deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
 EOF
 
-$SUDO apt update
-$SUDO apt upgrade -y
+$SUDO apt-get update
+$SUDO apt-get upgrade -y
 
 # =========================
 # 2) Paquetes base
 # =========================
 log "Instalando paquetes base"
-$SUDO apt install -y \
+$SUDO apt-get install -y \
   ca-certificates curl wget gnupg dirmngr coreutils \
   exfat-fuse hfsplus ntfs-3g \
   fastfetch htop \
@@ -101,6 +128,7 @@ $SUDO apt install -y \
   pipx \
   gir1.2-gnomedesktop-3.0 \
   thunderbird
+  
 
 
 # =========================
@@ -111,7 +139,7 @@ $SUDO flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/fla
 $SUDO flatpak install -y flathub com.mattjakeman.ExtensionManager || true
 
 # =========================
-# 4) sudoers: env_reset + pwfeedback (editando /etc/sudoers)
+# 4) sudoers: env_reset + pwfeedback (edición directa /etc/sudoers)
 # =========================
 if [ "$SUDO_ENABLE_PWFEEDBACK" = "true" ]; then
   log "Configurando sudoers: env_reset,pwfeedback (edición directa de /etc/sudoers)"
@@ -119,13 +147,12 @@ if [ "$SUDO_ENABLE_PWFEEDBACK" = "true" ]; then
   # Copia de seguridad
   $SUDO cp -a /etc/sudoers "/etc/sudoers.bak.$(date +%F_%H%M%S)"
 
-  # Editar en fichero temporal y validar antes de aplicar
+  # Editar en temporal y validar antes de aplicar
   tmp_sudoers="$(mktemp)"
   $SUDO cat /etc/sudoers > "$tmp_sudoers"
 
-  # Si existe línea Defaults env_reset, añadir pwfeedback; si no, añadir una Defaults nueva.
+  # Si existe Defaults env_reset, añadir pwfeedback; si no, añadir Defaults nueva.
   if grep -Eq '^[[:space:]]*Defaults[[:space:]]+env_reset' "$tmp_sudoers"; then
-    # Añadir pwfeedback solo si no está ya
     if ! grep -Eq '^[[:space:]]*Defaults[[:space:]]+.*\bpwfeedback\b' "$tmp_sudoers"; then
       $SUDO sed -i 's/^\([[:space:]]*Defaults[[:space:]]\+.*\benv_reset\b[^#]*\)$/\1,pwfeedback/' "$tmp_sudoers"
     fi
@@ -133,10 +160,7 @@ if [ "$SUDO_ENABLE_PWFEEDBACK" = "true" ]; then
     printf '\nDefaults env_reset,pwfeedback\n' | $SUDO tee -a "$tmp_sudoers" >/dev/null
   fi
 
-  # Validar sintaxis
   $SUDO visudo -cf "$tmp_sudoers"
-
-  # Aplicar si valida
   $SUDO cp "$tmp_sudoers" /etc/sudoers
   $SUDO chmod 0440 /etc/sudoers
   rm -f "$tmp_sudoers"
@@ -148,10 +172,10 @@ fi
 # 5) GRUB
 # =========================
 log "Configurando GRUB"
-$SUDO apt install -y plymouth plymouth-themes
+$SUDO apt-get install -y plymouth plymouth-themes
 
 if [ "$GRUB_ENABLE_OS_PROBER" = "true" ]; then
-  $SUDO apt install -y os-prober
+  $SUDO apt-get install -y os-prober
   $SUDO sed -i 's/^#\?GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' /etc/default/grub || true
   grep -q '^GRUB_DISABLE_OS_PROBER=' /etc/default/grub || echo 'GRUB_DISABLE_OS_PROBER=false' | $SUDO tee -a /etc/default/grub >/dev/null
 else
@@ -174,21 +198,28 @@ grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub || echo "GRUB_CMDLINE_L
 $SUDO update-grub
 
 # =========================
-# 6) CRAN en /etc/apt/sources.list (sin sources.list.d)
+# 6) CRAN en /etc/apt/sources.list (keyring seguro, sin sources.list.d)
 # =========================
-log "Configurando CRAN en /etc/apt/sources.list"
+log "Configurando CRAN en /etc/apt/sources.list (keyring seguro)"
+
+# Eliminar líneas previas de CRAN, si existieran
 $SUDO sed -i '/cloud\.r-project\.org\/bin\/linux\/debian/d' /etc/apt/sources.list
 
+# Keyring moderno
+$SUDO install -d -m 0755 /etc/apt/keyrings
+
+# Importar clave y exportar a keyring (sin prompts)
 $SUDO gpg --batch --keyserver keyserver.ubuntu.com --recv-key "$CRAN_KEY_FPR" || true
-$SUDO gpg --batch --yes --armor --export "$CRAN_KEY_FPR" > /tmp/cran.asc
-$SUDO mv /tmp/cran.asc /etc/apt/trusted.gpg.d/cran.asc
-$SUDO chmod 0644 /etc/apt/trusted.gpg.d/cran.asc
+tmp_key="$(mktemp)"
+$SUDO gpg --batch --yes --dearmor -o "$tmp_key" <($SUDO gpg --batch --yes --armor --export "$CRAN_KEY_FPR")
+$SUDO install -m 0644 "$tmp_key" /etc/apt/keyrings/cran-debian.gpg
+rm -f "$tmp_key"
 
-echo "deb http://cloud.r-project.org/bin/linux/debian trixie-cran40/" | \
-  $SUDO tee -a /etc/apt/sources.list >/dev/null
+# Añadir repo CRAN con signed-by a sources.list
+echo "$CRAN_REPO_LINE" | $SUDO tee -a /etc/apt/sources.list >/dev/null
 
-$SUDO apt update
-$SUDO apt install -y r-base r-base-dev
+$SUDO apt-get update
+$SUDO apt-get install -y r-base r-base-dev
 
 # =========================
 # 7) RStudio (opcional, SHA256 estricto, robusto)
@@ -208,14 +239,14 @@ if [ "$INSTALL_RSTUDIO" = "1" ]; then
     exit 1
   fi
 
-  $SUDO apt install -y "$RSTUDIO_DEB" || $SUDO gdebi -n "$RSTUDIO_DEB"
+  $SUDO apt-get install -y "$RSTUDIO_DEB" || $SUDO gdebi -n "$RSTUDIO_DEB"
   $SUDO rm -f "$RSTUDIO_DEB" || true
 else
   log "RStudio omitido (INSTALL_RSTUDIO=0)"
 fi
 
 # =========================
-# 8) gnome-extensions-cli (usuario)
+# 8) gnome-extensions-cli (usuario, vía pipx)
 # =========================
 log "Instalando gnome-extensions-cli (usuario)"
 "${RUN_AS_USER[@]}" pipx ensurepath >/dev/null 2>&1 || true
@@ -224,7 +255,7 @@ log "Instalando gnome-extensions-cli (usuario)"
 # =========================
 # 9) Postlogin GNOME (una sola vez)
 # =========================
-log "Creando postlogin GNOME"
+log "Creando postlogin GNOME (se ejecuta una vez al iniciar sesión)"
 
 cat > "$TARGET_HOME/postlogin-gnome.sh" <<EOF
 #!/usr/bin/env bash
@@ -236,6 +267,7 @@ exec >>"\$LOG" 2>&1
 echo
 echo "=== postlogin-gnome: \$(date +'%F %T') ==="
 
+# Requiere sesión GNOME activa (DBus)
 if [ -z "\${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
   echo "Sin DBUS_SESSION_BUS_ADDRESS. Salgo."
   exit 0
@@ -259,14 +291,24 @@ install_enable_ext() {
   fi
 }
 
-# GNOME puro: no tocar comportamiento de Super
-# Solo fijamos Super+A como vista de aplicaciones (estándar)
+# Extensiones desde extensions.gnome.org
+install_enable_ext "${EXT_DASH_TO_DOCK}"
+install_enable_ext "${EXT_BLUR_MY_SHELL}"
+install_enable_ext "${EXT_CAFFEINE}"
+install_enable_ext "${EXT_VITALS}"
+install_enable_ext "${EXT_COVERFLOW}"
+install_enable_ext "${EXT_DESKTOP_CUBE}"
+install_enable_ext "${EXT_DING}"
+
+# GNOME puro
+# No se toca el comportamiento de Super.
+# Solo se fija Super+A para abrir vista de aplicaciones.
 gsettings set org.gnome.shell.keybindings toggle-application-view "['<Super>a']" || true
 
 # Botones de ventana
 gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close' || true
 
-# Dash to Dock
+# Dash to Dock (iconos pequeños + tema incorporado)
 gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size ${DASH_ICON_SIZE} || true
 gsettings set org.gnome.shell.extensions.dash-to-dock apply-custom-theme ${DASH_USE_BUILTIN_THEME} || true
 gsettings set org.gnome.shell.extensions.dash-to-dock click-action 'focus-minimize-or-previews' || true
@@ -275,20 +317,19 @@ gsettings set org.gnome.shell.extensions.dash-to-dock dock-fixed true || true
 gsettings set org.gnome.shell.extensions.dash-to-dock autohide false || true
 gsettings set org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM' || true
 
-# Blur my Shell (panel)
+# Blur my Shell (panel: más legible)
 dconf write /org/gnome/shell/extensions/blur-my-shell/appfolder/blur false || true
 dconf write /org/gnome/shell/extensions/blur-my-shell/window-list/blur false || true
 dconf write /org/gnome/shell/extensions/blur-my-shell/panel/sigma ${BLUR_PANEL_SIGMA} || true
 dconf write /org/gnome/shell/extensions/blur-my-shell/panel/brightness ${BLUR_PANEL_BRIGHTNESS} || true
 
-# Vitals
+# Vitals (mayor precisión)
 dconf write /org/gnome/shell/extensions/vitals/use-higher-precision true || true
 
-# Caffeine
+# Caffeine (posición del indicador)
 dconf write /org/gnome/shell/extensions/caffeine/indicator-position-max 1 || true
 
-# Desktop Icons NG (DING)
-install_enable_ext "ding@rastersoft.com"
+# Desktop Icons NG (DING): tamaño de icono pequeño
 if gsettings list-schemas | grep -qx "org.gnome.shell.extensions.ding"; then
   gsettings set org.gnome.shell.extensions.ding icon-size '${DING_ICON_SIZE}' || true
 fi
@@ -316,8 +357,8 @@ chown "$TARGET_USER:$TARGET_USER" "$TARGET_HOME/.config/autostart/postlogin-gnom
 # 10) Limpieza
 # =========================
 log "Limpieza"
-$SUDO apt autoremove -y
-$SUDO apt clean
+$SUDO apt-get autoremove -y
+$SUDO apt-get clean
 
 log "Listo ✅"
 echo
@@ -329,4 +370,3 @@ __SCRIPT__
 
 chmod +x /tmp/postinstalacion-debian13.sh
 sudo bash /tmp/postinstalacion-debian13.sh
-

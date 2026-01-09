@@ -1,150 +1,183 @@
-# Debian 13 – Script de postinstalación automática (GNOME)
+# Debian 13 (GNOME) – Postinstalación automatizada
 
-**IMPORTANTE:**
+**IMPORTANTE**
 
--   **Este script no instala Debian. Se ejecuta después de haber instalado Debian 13 con entorno gráfico GNOME.**
+- Este repositorio **no instala Debian**.
+- Los scripts se ejecutan **después** de una instalación limpia de **Debian 13 con entorno gráfico GNOME**.
+- Se recomienda utilizarlos **inmediatamente tras instalar Debian 13**, antes de personalizar el sistema manualmente.
+- El contenido del repositorio está en formato **Markdown**, pensado para **copiar, pegar y ejecutar directamente en la terminal**.
 
--   **Se recomienda utilizarlo solo en instalaciones limpias, inmediatamente después de instalar Debian 13**
+---
 
-## Por qué este repositorio
+## Por qué existe este repositorio
 
-Cada vez que instalaba Debian acababa perdiendo mucho tiempo repitiendo los mismos pasos. Normalmente seguía algún vídeo de YouTube (como [este,](https://www.youtube.com/watch?v=KQTB-ycBeB8)de Soplos Linux, que es uno de los mejores, aunque el de Debian 12, [era mucho más claro](https://www.youtube.com/watch?v=oPf_0h8mG2Q)) y, aun así, el resultado final nunca quedaba exactamente igual. Con el tiempo me di cuenta de que el problema no era Debian, sino la falta de un proceso reproducible.
+Cada vez que instalaba Debian acababa perdiendo mucho tiempo repitiendo siempre los mismos pasos. Normalmente seguía algún vídeo de YouTube y, aun así, el resultado final nunca quedaba exactamente igual.
 
-En respuesta a este problema, este repositorio nace con dos objetivos muy concretos:
+Con el tiempo me di cuenta de que el problema no era Debian, sino la falta de un proceso reproducible.
 
--   Reducir al mínimo el tiempo dedicado a la postinstalación de Debian.
--   Asegurar que la base del sistema sea siempre la misma en todas mis instalaciones.
+Este repositorio nace con dos objetivos muy concretos:
 
-Así, este repositorio contiene un script prepara Debian 13 automáticamente tras una instalación limpia, sin necesidad de conocimientos previos de Linux. Está pensado para:
+- Reducir al mínimo el tiempo dedicado a la postinstalación.
+- Asegurar que la base del sistema sea siempre la misma en todas mis instalaciones.
 
--   Personas que vienen de Windows o macOS.
--   Usuarios que reinstalan con frecuencia.
--   Uso académico, profesional o personal.
--   Quienes quieren un sistema GNOME listo para usar con un solo comando.
+La idea es sencilla: tras una instalación limpia de Debian, ejecutar siempre los mismos pasos, en el mismo orden, y obtener siempre el mismo punto de partida.
 
-## Qué es Debian
+---
 
-Debian es un sistema operativo libre, estable y muy fiable. Es similar a Ubuntu, pero más conservador y predecible, lo que lo hace habitual en entornos académicos y profesionales.
+## Estructura del repositorio
 
-## Qué hace este script
+El repositorio contiene **dos scripts**, separados por intención y alcance:
 
-Tras una instalación limpia de Debian 13 con GNOME, el script realiza las siguientes tareas.
+### 1. `Script post instalacion Debian 13.md`
+
+Script principal de **postinstalación del sistema**.  
+Prepara Debian 13 para un uso general y deja GNOME configurado de forma coherente y funcional.
+
+Este script es el **único realmente imprescindible**.
+
+### 2. `Script post instalacion Debian 13, parte 2, personalizacion.md`
+
+Script complementario y **opcional**, orientado a:
+
+- Trabajo académico y técnico con R
+- Compilación de paquetes
+- LaTeX y OCR
+- Personalización avanzada del ratón en Wayland (control de volumen)
+
+Está pensado para ejecutarse **después** del primero, solo si ese tipo de configuración es necesaria.
+
+---
+
+## Qué hace el script principal
+
+Tras una instalación limpia de Debian 13 con GNOME, el primer script realiza las siguientes tareas.
 
 ### Sistema
 
--   Actualiza el sistema completo.
--   Configura el menú de arranque (GRUB):
-    -   Tiempo de espera en pantalla de inicio: 10 segundos.
-    -   Resolución de pantalla: 2560 × 1080.
-    -   Detección de otros sistemas operativos (por ejemplo Windows).
-    -   Arranque limpio y silencioso (`quiet splash`).
+- Configura los repositorios oficiales de Debian en `/etc/apt/sources.list`.
+- Actualiza completamente el sistema.
+- Instala herramientas básicas y utilidades habituales.
+- Añade soporte para discos NTFS, exFAT y HFS+.
+- Instala reproductores multimedia y soporte completo de audio y vídeo.
+- Instala Flatpak y configura Flathub.
+- Instala Thunderbird como cliente de correo.
+
+### GRUB (arranque)
+
+Configura el gestor de arranque en `/etc/default/grub`:
+
+- Tiempo de espera antes del inicio de sesión: 10 segundos.
+- Resolución: 2560 × 1080.
+- Detección de otros sistemas operativos (por ejemplo Windows).
+- Arranque limpio y silencioso (`quiet splash`).
 
 ### Usuario y permisos
 
--   Ajusta el sistema para que, al escribir la contraseña con permisos de administrador, exista feedback visual.
--   No modifica el comportamiento normal de GNOME.
+- Modifica directamente `/etc/sudoers` (con copia de seguridad y validación).
+- Activa feedback visual al escribir la contraseña con `sudo`.
+- **No altera** el modelo de permisos ni la lógica de seguridad de Debian.
 
-### Programas instalados
+### R y RStudio
 
--   Herramientas básicas del sistema.
--   Soporte para discos USB, NTFS, exFAT y HFS+.
--   Reproductores multimedia (VLC, Clementine).
--   Soporte completo de audio y vídeo.
--   Flatpak y Flathub.
--   Thunderbird como cliente de correo electrónico.
--   R (lenguaje estadístico) desde el repositorio oficial CRAN.
--   RStudio Desktop (opcional, con verificación de integridad mediante SHA256).
+- Añade el repositorio oficial CRAN usando un keyring seguro.
+- Instala R (`r-base`, `r-base-dev`).
+- Instala RStudio Desktop de forma opcional.
+- Verifica criptográficamente el instalador de RStudio mediante SHA256.
 
-### Escritorio GNOME (configuración automática)
+### GNOME (configuración automática)
 
-Al iniciar sesión por primera vez, el sistema ajusta automáticamente GNOME:
+Al **primer inicio de sesión**, el sistema aplica automáticamente una serie de ajustes en GNOME.  
+Estos ajustes se ejecutan **una sola vez** y luego el sistema vuelve a su funcionamiento normal.
 
--   Barra inferior con programas más usados, o dock inferior (Dash to Dock):
-    -   Iconos pequeños.
-    -   Apariencia integrada con el tema del sistema.
--   Menús legibles y sin transparencias molestas.
--   Monitorización del sistema (CPU, memoria, red).
--   Iconos pequeños en el escritorio.
--   Botones de ventana: minimizar, maximizar y cerrar.
--   Tipografías Ubuntu (incluida Ubuntu Mono).
+Entre otros:
 
-Estos ajustes se aplican una sola vez y luego el sistema vuelve a su funcionamiento normal.
+- Dock inferior (Dash to Dock):
+  - Iconos pequeños.
+  - Apariencia integrada con el tema del sistema.
+- Menús más legibles, sin transparencias innecesarias.
+- Monitorización del sistema (CPU, memoria, red).
+- Iconos pequeños en el escritorio (Desktop Icons NG).
+- Botones de ventana: minimizar, maximizar y cerrar.
+- Tipografías Ubuntu (incluida Ubuntu Mono).
+- Atajo estándar `Super + A` para la vista de aplicaciones.
 
-## Qué es sudo
+El comportamiento normal de GNOME **no se modifica**.
 
-sudo es un comando que permite realizar cambios importantes en el sistema introduciendo la contraseña del usuario.
+---
 
--   Es normal.\
--   Es seguro.\
--   Debian lo utiliza para evitar errores accidentales.
+## Qué hace la segunda parte (opcional, es lo más personal dado mi uso)
 
-Cuando el script lo solicite, escribe tu contraseña y pulsa Enter.\
+El segundo script amplía el sistema con:
+
+- Dependencias de compilación habituales para R y paquetes científicos.
+- LaTeX completo (XeTeX y extras).
+- Pandoc.
+- OCR con Tesseract (inglés y español).
+- Configuración del ratón en Wayland para controlar el volumen mediante botones laterales, usando `input-remapper` sin interfaz gráfica.
+
+Esta parte está pensada para entornos académicos o técnicos y **no es necesaria** para un uso general del sistema.
+
+---
+
+## Qué es `sudo`
+
+`sudo` es un comando que permite realizar cambios importantes en el sistema introduciendo la contraseña del usuario.
+
+- Es normal.
+- Es seguro.
+- Debian lo utiliza para evitar errores accidentales.
+
+Cuando el script lo solicite, escribe tu contraseña y pulsa Enter.  
 No se mostrarán letras ni símbolos en pantalla. Esto es el comportamiento esperado.
+
+---
 
 ## Requisitos
 
--   Debian 13 recién instalado.
--   Entorno gráfico GNOME.
--   Conexión a Internet.
--   Usuario con permisos de administrador (sudo).
+- Debian 13 recién instalado.
+- Entorno gráfico GNOME.
+- Conexión a Internet.
+- Usuario con permisos de administrador (`sudo`).
 
-El script funciona tanto en Wayland como en X11.
+El sistema funciona tanto en **Wayland como en X11**.
 
-## Cómo usarlo
+---
 
-### Descargar el script
+## Cómo usar los scripts
 
-En la terminal de linux, copia y pega:
+Abre una terminal y **copia y pega** el contenido del archivo correspondiente:
 
-``` bash
-wget https://raw.githubusercontent.com/robertocabreratapia/DEBIAN13_Postinstalacion/main/postinstalacion-debian13.sh
-```
+1. Ejecuta primero el contenido de  
+   **`Script post instalacion Debian 13.md`**
+2. Cierra sesión cuando el script lo indique.
+3. Vuelve a iniciar sesión en GNOME.
+4. De forma opcional, ejecuta después  
+   **`Script post instalacion Debian 13, parte 2, personalizacion.md`**
 
-### Dar permisos de ejecución
+---
 
-En la terminal de linux, copia y pega:
+## Qué modifica el sistema
 
-``` bash
-sudo bash postinstalacion-debian13.sh
-```
+Por transparencia, los scripts modifican o configuran:
 
-En la terminal, introduce tu contraseña cuando se te pida.
+- `/etc/apt/sources.list`
+- `/etc/default/grub`
+- `/etc/sudoers`
+- Instalación de software y extensiones GNOME oficiales
 
-### Paso final
+Se recomienda usarlos únicamente en instalaciones limpias.
 
-Cuando el script termine: 1. Cierra sesión. 2. Vuelve a iniciar sesión en GNOME.
+---
 
-El escritorio se ajustará automáticamente en ese primer inicio.
+## Seguridad
 
-## Opciones
+- Usa repositorios oficiales.
+- Verifica RStudio mediante comprobación criptográfica.
+- No elimina datos personales.
+- No altera la lógica ni el comportamiento base de GNOME.
 
-Si no deseas instalar RStudio, ejecuta:
-
-``` bash
-INSTALL_RSTUDIO=0 sudo bash postinstalacion-debian13.sh
-```
-
-El resto del script se ejecutará con normalidad.
-
-## Qué modifica el script
-
-Para total transparencia, el script modifica o configura:
-
--   /etc/apt/sources.list
-
--   /etc/default/grub
-
--   /etc/sudoers
-
--   Instalación de software y extensiones GNOME oficiales
-
-## Es seguro
-
--   Usa repositorios oficiales.\
--   Verifica RStudio con comprobación criptográfica.\
--   No elimina datos personales.\
--   No altera la lógica ni el comportamiento base de GNOME.
+---
 
 ## Reconocimiento
 
-Este proyecto fue desarrollado con el apoyo de ChatGPT (OpenAI) como herramienta de asistencia para la programación y la documentación.
+Este proyecto fue desarrollado con el apoyo de **ChatGPT (OpenAI)** como herramienta de asistencia para la programación, depuración y documentación.
