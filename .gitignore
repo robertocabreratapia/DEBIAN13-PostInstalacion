@@ -1,4 +1,33 @@
-.Rproj.user
+# =========================
+# RStudio / R
+# =========================
+
+# Archivo del proyecto RStudio
+*.Rproj
+
+# Configuración local de RStudio
+.Rproj.user/
+
+# Historiales y sesiones de R
 .Rhistory
 .RData
 .Ruserdata
+
+# =========================
+# Sistema operativo
+# =========================
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# macOS
+.DS_Store
+
+# =========================
+# Archivos temporales
+# =========================
+
+*.log
+*.tmp
+*~
